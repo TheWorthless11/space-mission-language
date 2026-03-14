@@ -6,40 +6,6 @@ It is designed as an educational project to demonstrate the core phases of compi
 
 ---
 
-# Program Structure
-
-Every program begins with a **mission declaration**.
-
-### Syntax
-
-```
-mission IDENTIFIER start
-    statements
-end
-```
-
-### Example
-
-```
-mission Apollo start
-    int fuel = 100;
-    transmit fuel;
-end
-```
-
-### Equivalent C
-
-```c
-#include <stdio.h>
-
-int main() {
-    int fuel = 100;
-    printf("%d", fuel);
-}
-```
-
----
-
 # Implementation
 
 The compiler for **Space Mission Language** is implemented using:
@@ -98,6 +64,40 @@ Example:
 int fuel = 100;
 float velocity = 7.8;
 string message = "Launch Ready";
+```
+
+---
+
+# Program Structure
+
+Every program begins with a **mission declaration**.
+
+### Syntax
+
+```
+mission IDENTIFIER start
+    statements
+end
+```
+
+### Example
+
+```
+mission Apollo start
+    int fuel = 100;
+    transmit fuel;
+end
+```
+
+### Equivalent C
+
+```c
+#include <stdio.h>
+
+int main() {
+    int fuel = 100;
+    printf("%d", fuel);
+}
 ```
 
 ---
