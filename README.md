@@ -23,7 +23,7 @@ The following table lists the core keywords used in **Space Mission Language (SM
 | Keyword     | Purpose                         | Equivalent Concept in C |
 | ----------- | ------------------------------- | ----------------------- |
 | `mission`   | Declares the main program       | `int main()`            |
-| `launch`    | Defines a function              | Function definition     |
+| `module`    | Defines a function              | Function definition     |
 | `start`     | Begins a code block             | `{`                     |
 | `end`       | Ends a code block               | `}`                     |
 | `check`     | Conditional statement           | `if`                    |
@@ -175,12 +175,12 @@ This allows variables to store values and update them during program execution.
 
 # Functions
 
-Functions are defined using the `launch` keyword.
+Functions are defined using the `module` keyword.
 
 ### Syntax
 
 ```
-launch TYPE function_name(parameters) start
+module TYPE function_name(parameters) start
     statements
     return value;
 end
@@ -189,7 +189,7 @@ end
 ### Example
 
 ```
-launch int add(int a, int b) start
+module int add(int a, int b) start
     return a + b;
 end
 ```
@@ -291,7 +291,7 @@ printf("%d", fuel);
 # Complete Example Program
 
 ```
-launch int add(int a, int b) start
+module int add(int a, int b) start
     return a + b;
 end
 
@@ -321,7 +321,7 @@ The following categories define the tokens recognized by **Space Mission Languag
 
 | Token Type          | Description                                  | Example                            |
 | ------------------- | -------------------------------------------- | ---------------------------------- |
-| Keyword             | Reserved words with predefined meaning       | `mission`, `launch`, `check`       |
+| Keyword             | Reserved words with predefined meaning       | `mission`, `module`, `check`       |
 | Identifier          | Names of variables and functions             | `fuel`, `orbitSpeed`, `starCount`  |
 | Number              | Numeric values                               | `10`, `100`, `3.14`                |
 | String Literal      | Text enclosed in quotes                      | `"Launch Ready"`                   |
@@ -360,7 +360,7 @@ The Flex lexer will typically define tokens such as:
 
 ```
 MISSION
-LAUNCH
+MODULE
 CHECK
 OTHERWISE
 ORBIT
@@ -494,6 +494,187 @@ Space Mission Language Source Code
 | Intermediate Code | Optional stage for code generation                  |
 | Execution         | Program behavior is executed or interpreted         |
 | Output            | Final program result                                |
+
+---
+
+# Flex Lexer Implementation Details
+
+The **Space Mission Language (SML) lexer** is implemented using **Flex** and performs lexical analysis by scanning the source code and converting it into a sequence of tokens.
+These tokens are later passed to the **Bison parser** for syntax analysis.
+
+---
+
+## Token Recognition
+
+The lexer identifies the following token categories:
+
+* Keywords (`mission`, `module`, `check`, `orbit`, `transmit`, etc.)
+* Identifiers
+* Integer literals
+* Floating-point literals
+* String literals
+* Operators
+* Delimiters
+* Boolean literals (`true`, `false`)
+
+Each token is printed in the following format:
+
+```
+TOKEN: TOKEN_NAME (value)
+```
+
+Example:
+
+```
+TOKEN: IDENTIFIER (fuel)
+TOKEN: INTEGER_LITERAL (100)
+TOKEN: STRING_LITERAL (Launch Ready)
+```
+
+---
+
+## Supported String Features
+
+The lexer supports **string literals with escape sequences**.
+
+Example:
+
+```
+"Hello World"
+"Line1\nLine2"
+"Tab\tSeparated"
+"Quote: \"Hello\""
+"Backslash: \\"
+```
+
+Supported escape sequences:
+
+| Escape | Meaning         |
+| ------ | --------------- |
+| `\n`   | newline         |
+| `\t`   | tab             |
+| `\r`   | carriage return |
+| `\"`   | double quote    |
+| `\\`   | backslash       |
+
+Invalid escape sequences are detected and reported as lexical errors.
+
+---
+
+## Numeric Literal Handling
+
+The lexer supports both **integer** and **floating-point** numbers.
+
+Examples:
+
+```
+10
+150
+3.14
+7.8
+```
+
+The lexer also detects malformed numeric literals such as:
+
+```
+5.
+.5
+```
+
+These are reported as **malformed floating-point errors**.
+
+---
+
+## Integer Overflow Detection
+
+Integer values are parsed using `strtol()` and checked for overflow using `errno`.
+
+Example:
+
+```
+999999999999999999999999999999
+```
+
+Output:
+
+```
+LEXICAL ERROR: integer overflow
+```
+
+---
+
+## Comment Handling
+
+The lexer supports two types of comments.
+
+### Single-line comment
+
+```
+// This is a comment
+```
+
+### Multi-line comment
+
+```
+/*
+This is a multi-line comment
+spanning multiple lines
+*/
+```
+
+Comments are ignored by the lexer during tokenization.
+
+---
+
+## Error Reporting with Line and Column Numbers
+
+All lexical errors include **precise location information**.
+
+Example:
+
+```
+LEXICAL ERROR at line 85 column 13: Invalid token '$'
+```
+
+This helps developers quickly locate errors in the source code.
+
+---
+
+## Additional Error Detection
+
+The lexer detects several lexical errors including:
+
+* Invalid tokens (e.g., `$`, `@`)
+* Invalid escape sequences
+* Unterminated string literals
+* Unclosed multi-line comments
+* Integer overflow
+* Malformed floating-point numbers
+* Identifiers exceeding maximum length
+
+---
+
+## Example Lexer Output
+
+Input program:
+
+```
+int fuel = 100;
+transmit "Launch Ready";
+```
+
+Lexer output:
+
+```
+TOKEN: INT
+TOKEN: IDENTIFIER (fuel)
+TOKEN: ASSIGN
+TOKEN: INTEGER_LITERAL (100)
+TOKEN: SEMICOLON
+TOKEN: TRANSMIT
+TOKEN: STRING_LITERAL (Launch Ready)
+TOKEN: SEMICOLON
+```
 
 ---
 
