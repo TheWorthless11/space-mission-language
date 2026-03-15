@@ -23,7 +23,7 @@ The following table lists the core keywords used in **Space Mission Language (SM
 | Keyword     | Purpose                         | Equivalent Concept in C |
 | ----------- | ------------------------------- | ----------------------- |
 | `mission`   | Declares the main program       | `int main()`            |
-| `launch`    | Defines a function              | Function definition     |
+| `module`    | Defines a function              | Function definition     |
 | `start`     | Begins a code block             | `{`                     |
 | `end`       | Ends a code block               | `}`                     |
 | `check`     | Conditional statement           | `if`                    |
@@ -175,12 +175,12 @@ This allows variables to store values and update them during program execution.
 
 # Functions
 
-Functions are defined using the `launch` keyword.
+Functions are defined using the `module` keyword.
 
 ### Syntax
 
 ```
-launch TYPE function_name(parameters) start
+module TYPE function_name(parameters) start
     statements
     return value;
 end
@@ -189,7 +189,7 @@ end
 ### Example
 
 ```
-launch int add(int a, int b) start
+module int add(int a, int b) start
     return a + b;
 end
 ```
@@ -291,7 +291,7 @@ printf("%d", fuel);
 # Complete Example Program
 
 ```
-launch int add(int a, int b) start
+module int add(int a, int b) start
     return a + b;
 end
 
@@ -321,7 +321,7 @@ The following categories define the tokens recognized by **Space Mission Languag
 
 | Token Type          | Description                                  | Example                            |
 | ------------------- | -------------------------------------------- | ---------------------------------- |
-| Keyword             | Reserved words with predefined meaning       | `mission`, `launch`, `check`       |
+| Keyword             | Reserved words with predefined meaning       | `mission`, `module`, `check`       |
 | Identifier          | Names of variables and functions             | `fuel`, `orbitSpeed`, `starCount`  |
 | Number              | Numeric values                               | `10`, `100`, `3.14`                |
 | String Literal      | Text enclosed in quotes                      | `"Launch Ready"`                   |
@@ -360,7 +360,7 @@ The Flex lexer will typically define tokens such as:
 
 ```
 MISSION
-LAUNCH
+MODULE
 CHECK
 OTHERWISE
 ORBIT
