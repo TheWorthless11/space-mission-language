@@ -1,0 +1,15 @@
+# build files
+*.o
+*.out
+*.exe
+
+# flex/bison generated files
+lex.yy.c
+parser.tab.c
+parser.tab.h
+
+# vscode settings
+.vscode/
+
+# system files
+.DS_Store
