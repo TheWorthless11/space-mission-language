@@ -678,6 +678,241 @@ TOKEN: SEMICOLON
 
 ---
 
+# Bison Parser Implementation Details
+
+The **Space Mission Language (SML) parser** is implemented using **Bison** and performs syntax + semantic analysis over the token stream produced by Flex.
+
+The parser validates:
+
+* Program structure (`mission ... start ... end`)
+* Declarations, assignments, and expressions
+* Conditional and loop blocks
+* Function declarations and function calls
+* Type compatibility in expressions and assignments
+
+---
+
+## Grammar Coverage
+
+The parser handles these core grammar components:
+
+* Program (`functions` + `mission` block)
+* Statements (`declaration`, `assignment`, `print`, `if`, `loop`, `return`)
+* Blocks (`start ... end`) with nested scopes
+* Expressions with arithmetic, relational, and logical operators
+* Function definitions with parameter lists
+* Function calls with argument lists
+
+---
+
+## Operator Precedence and Associativity
+
+The parser uses precedence rules to correctly parse complex expressions.
+
+From lowest to highest precedence:
+
+1. `OR`
+2. `AND`
+3. `EQUAL`, `NOT_EQUAL`
+4. `LESS`, `GREATER`, `LESS_EQUAL`, `GREATER_EQUAL`
+5. `PLUS`, `MINUS`
+6. `MULTIPLY`, `DIVIDE`
+7. Unary `NOT`
+
+This ensures expressions like:
+
+```
+a = add(5) + sum(2, 3) * 2;
+```
+
+are parsed with the expected order.
+
+---
+
+## Symbol Table and Scope Handling
+
+Semantic analysis is integrated with parsing using a scope-aware symbol table.
+
+It supports:
+
+* Entering/exiting scopes for mission block, function block, and nested blocks
+* Variable declaration checks (same-scope redeclaration detection)
+* Variable lookup from inner scope to outer scope
+* Type retrieval for assignment and expression validation
+
+---
+
+## Function Handling
+
+The parser stores function signatures as:
+
+* Function name
+* Declared return type (from `module TYPE name(...)`)
+* Ordered parameter type list
+
+During function parsing, the compiler also tracks inferred return type from `return` statements and validates it against the declared return type.
+
+During function calls, it validates:
+
+* Function existence
+* Argument count (arity)
+* Argument type compatibility
+
+This enables overload-like matching by parameter signature.
+
+---
+
+## Type Checking Rules
+
+The parser performs semantic checks such as:
+
+* Assignment type match (`int = int`, `string = string`, etc.)
+* Implicit numeric assignment conversion (`int -> float` allowed, `float -> int` rejected)
+* Logical operator type checks (`AND`, `OR`, `NOT` require `flag`)
+* Arithmetic operator compatibility (`+`, `-`, `*`, `/` require numeric operands)
+* Numeric result promotion (`int/float` mixed arithmetic produces `float`)
+* Relational comparison compatibility (`<`, `>`, `==`, etc.)
+* Condition checks for control flow (`check(...)` and `orbit(...)` require `flag`)
+* Function return-type consistency inside a function body
+
+Type errors are reported without immediately terminating parsing where recovery is possible.
+
+---
+
+## Parser Error Recovery
+
+The parser includes Bison error-recovery rules for statements:
+
+* `error SEMICOLON`
+
+This allows the parser to skip malformed statements and continue parsing later input instead of stopping at the first syntax error.
+
+---
+
+## Example Parser Diagnostics
+
+Typical parser/semantic diagnostics include:
+
+```
+Syntax Error at line 11: syntax error
+Error: Variable 'x' not declared
+Type Error: cannot assign string to int
+Error: function 'sum' called with wrong number of arguments
+Error: function 'greet' called with wrong argument types
+Type Error: condition must be flag
+Type Error: function return type mismatch
+```
+
+---
+
+## Conflict and Grammar Improvements
+
+The parser grammar was improved to eliminate heavy Bison conflicts and increase stability.
+
+Key improvements include:
+
+* Refactored statement-list handling (`statements_opt` + non-empty `statements`)
+* Simplified `if/else` design using `if_stmt` + `if_tail`
+* Reusable `block` nonterminal with correct scope enter/exit
+* Better semantic value lifetime handling in function rules
+
+These changes removed prior shift/reduce and reduce/reduce conflict issues and made parser behavior more predictable.
+
+---
+
+# AST (Abstract Syntax Tree)
+
+The parser now builds a simple AST while preserving semantic checks.
+
+Implemented node families include:
+
+* Expressions: literals, identifiers, unary, binary, function calls
+* Statements: declaration, assignment, print, return, if, loop
+* Program root: `ProgramAST`
+
+The AST can be printed in a readable tree format (shown in debug mode).
+
+---
+
+# IR (Intermediate Representation)
+
+The compiler generates a simple 3-address-style IR from the AST.
+
+IR characteristics:
+
+* Temporary-based expressions (`t1`, `t2`, ...)
+* Label-based control flow (`L1`, `L2`, ...)
+* Assignment, print, return, conditional jump, loop jump instructions
+* Function-call IR emission (`call f(...)`)
+
+Built-in IR expansion:
+
+* `ignite(x)` expands to:
+    * `t1 = x * 2`
+    * `t2 = t1 + 10`
+
+IR is printed in both normal and debug modes.
+
+---
+
+# Runtime Modes (Normal vs Debug)
+
+The parser executable supports two runtime modes:
+
+* **Normal mode**
+    * Shows essential diagnostics and IR output
+    * Keeps output clean for regular usage
+
+* **Debug mode**
+    * Enabled automatically when compiled with `-DDEBUG`
+    * Prints semantic action traces (declarations, assignments, expression evaluation, function events)
+    * Prints lexer tokens
+    * Prints symbol table and AST
+    * Also prints IR output
+
+Optional runtime override:
+
+* `nodebug` disables both lexer and parser debug output even in a `-DDEBUG` build.
+
+Example usage:
+
+```bash
+# Debug OFF (normal build)
+g++ lex.yy.c parser.tab.c -o sml
+./sml test_all.sml
+
+# Debug ON (compile-time)
+g++ -DDEBUG lex.yy.c parser.tab.c -o sml
+./sml test_all.sml
+
+# Debug build, but force OFF at runtime
+./sml nodebug test_all.sml
+```
+
+---
+
+# Test Files
+
+The project includes focused, feature-based tests and one comprehensive test file.
+
+Focused tests:
+
+* `test_declaration.sml` — declarations for `int`, `float`, `string`, `flag`
+* `test_assignment.sml` — valid and invalid assignments
+* `test_expression.sml` — arithmetic and mixed-precedence expressions
+* `test_condition.sml` — valid/invalid `check` conditions
+* `test_loop.sml` — `orbit` loop with valid flag condition
+* `test_function.sml` — function return validation
+* `test_function_call.sml` — valid call + wrong arity/type cases
+* `test_builtin_ignite.sml` — `ignite(x)` usage
+* `test_error.sml` — undeclared variable, redeclaration, type mismatch
+
+Comprehensive test:
+
+* `test_all.sml` — declarations, assignments, expressions, control flow, function definition/call, and `ignite()` usage in one program
+
+---
+
 # Educational Purpose
 
 This project demonstrates key compiler concepts including:
