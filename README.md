@@ -5,9 +5,7 @@ It is designed as an educational project to demonstrate the core phases of compi
 
 ---
 
-# Rubric Compliance Addendum (Added for Grading)
-
-This addendum is added without removing the original project write-up. It maps the current implementation in this repository to the grading rubric and highlights advanced work.
+# Rubric Compliance Addendum
 
 ## Implementation Note (Current Codebase)
 
