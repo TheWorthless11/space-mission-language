@@ -1,0 +1,31 @@
+
+===== IR (3-Address Code) =====
+fuel = 100
+reserve = 20
+speed = 10.5
+status = "prepare"
+ready = true
+t1 = fuel - reserve
+fuel = t1
+t2 = speed * 2.0
+t3 = t2 / 3.0
+speed = t3
+ifFalse ready goto L1
+print status
+goto L2
+L1:
+print "hold"
+L2:
+L3:
+ifFalse ready goto L4
+t4 = fuel - 1
+fuel = t4
+print fuel
+goto L3
+L4:
+t5 = call adjust(reserve, 5)
+reserve = t5
+t6 = reserve * 2
+t7 = t6 + 10
+fuel = t7
+print fuel

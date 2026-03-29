@@ -45,7 +45,7 @@ std::string string_buffer;
 
 
 /* -------------------------------------------------DEFINITIONS SECTION. Reusable regular expressions------------------------------------------------- */
-%x STRLIT
+%x STRLIT /* STRLIT is a start condition for processing string literals. When the lexer enters this state, it will use special rules for handling string content until it sees the closing quote. */
 /* digits 0-9 */
 DIGIT      [0-9]
 
@@ -64,7 +64,7 @@ INTEGER    {DIGIT}+
 FLOATNUM   {DIGIT}+\.{DIGIT}+
 
 
-/* -------------------------------------------------WHITESPACE. space, tab,------------------------------------------------- */
+/* -------------------------------------------------WHITESPACE. space, tab,carriage return ------------------------------------------------- */
 WHITESPACE [ \t\r]+
 
 /* RULES SECTION. pattern  -> action*/
@@ -142,29 +142,38 @@ WHITESPACE [ \t\r]+
 
 "/*" {
     int c;
-   int start_line = yylineno; 
+    int start_line = yylineno;
+    bool closed = false;
 
-    while((c = yyinput()) != EOF){
-      if(c=='\n')
-      {
-         column=1;
-      }
-      
-      if((c =='*') )
-      {
-            if((c=yyinput())=='/')                                                       /*input read next character*/
-         break;
-         else
-         unput(c);                                                                  /*push character back*/
-      }
-   }
+    while ((c = yyinput()) != EOF) {
 
-    /* If we reach here → EOF before closing comment */
-    if(c == EOF)
-{
-    std::cout << "LEXICAL ERROR: Unclosed comment starting at line " << start_line
-              << " column " << token_column << "\n";
-}
+        if (c == '\n') {
+            column = 1;
+        } else {
+            column++;
+        }
+
+        if (c == '*') {
+            int next = yyinput();
+
+            if (next == EOF) {
+                break;
+            }
+
+            if (next == '/') {
+                column++;      // count the consumed '/'
+                closed = true;
+                break;
+            } else {
+                unput(next);   // put it back, so column stays unchanged for next
+            }
+        }
+    }
+
+    if (!closed) {
+        std::cout << "LEXICAL ERROR: Unclosed comment starting at line "
+                  << start_line << " column " << token_column << "\n";
+    }
 }
 
 {FLOATNUM}     {
@@ -209,7 +218,7 @@ WHITESPACE [ \t\r]+
                                                                                         special rules for string processing become active. */
 
 <STRLIT>\" {
-    BEGIN(INITIAL);
+    BEGIN(INITIAL); // go back to normal scanning/lexer state
     yylval.str = new std::string(string_buffer);
     DEBUG_PRINT("TOKEN: STRING_LITERAL (" << *yylval.str << ")\n");
     return STRING_LITERAL;
@@ -307,7 +316,7 @@ WHITESPACE [ \t\r]+
 
 
 
-[^a-zA-Z0-9_ \t\r\n;,+\-*/<>=(){}\[\]!|"]+ {                                                  /* ---------------- ERROR HANDLING ---------------- */
+[^a-zA-Z0-9_ \t\r\n;,+\-*/<>=(){}\[\]!"]+ {                                                   /* ---------------- ERROR HANDLING ---------------- */
     std::cout << "LEXICAL ERROR at line " << yylineno << " column " << token_column
             << ": Invalid token '" << yytext << "'\n"; /* any unknown character gives error with line number*/
 }
@@ -315,6 +324,7 @@ WHITESPACE [ \t\r]+
 
 %%
 
+//user code section.
 
 /* -------------------------------------------------
    Called when lexer reaches end of file

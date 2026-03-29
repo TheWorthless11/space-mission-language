@@ -1,8 +1,100 @@
-# Space Mission Language (SML)
+﻿# Space Mission Language (SML)
 
 Space Mission Language (SML) is a small domain-specific programming language inspired by **space mission control commands**.
 It is designed as an educational project to demonstrate the core phases of compiler construction using **Flex** (lexical analysis) and **Bison** (syntax analysis).
 
+---
+
+# Rubric Compliance Addendum (Added for Grading)
+
+This addendum is added without removing the original project write-up. It maps the current implementation in this repository to the grading rubric and highlights advanced work.
+
+## Implementation Note (Current Codebase)
+
+- Lexer: Flex (`lexer.l`)
+- Parser + semantic actions + AST + IR: C++ code inside Bison grammar (`parser.y`)
+- So the active implementation is Flex + Bison + C++ (not plain C runtime only).
+
+## 1. Complete Implemented Feature List
+
+- Tokenization for keywords, identifiers, literals, operators, delimiters
+- Line and column aware lexical diagnostics
+- String state machine with escape handling (`STRLIT`)
+- Multi-line and single-line comment handling
+- Parser grammar for program, declarations, assignments, expressions, blocks, functions
+- Operator precedence and associativity
+- Syntax error reporting + statement-level recovery (`error SEMICOLON`)
+- Symbol table with nested scope stack
+- Redeclaration and undeclared-variable checks
+- Type checking for assignment/declaration/expression operators
+- Implicit conversion support (`int -> float`)
+- Function declaration tracking with signature matching
+- Return-type consistency checks
+- Function call arity/type validation
+- Recursive self-call semantic support (signature registered before function body parse)
+- Zero-argument function declaration/call support (`f()`)
+- AST node hierarchy for expressions/statements/program
+- IR generation (3-address style, temps + labels)
+- Built-in function lowering in IR (`ignite`, `percent`)
+- Debug mode with semantic traces, token traces, symbol table, AST, IR
+
+## 2. Rubric Mapping Table
+
+| Feature | Rubric Category | Implemented | Evidence |
+| --- | --- | --- | --- |
+| Token definitions in Flex | 1. Lexical Analysis | Yes | `lexer.l` keyword/operator/literal rules |
+| Invalid token handling | 1. Lexical Analysis | Yes | `lexer.l` invalid-token rule + diagnostics |
+| Flex-Bison integration | 1. Lexical Analysis | Yes | `lexer.l` includes `parser.tab.h`, returns parser tokens |
+| Well-defined grammar rules | 2. Syntax Analysis | Yes | `parser.y` nonterminals (`program`, `statement`, `function`, expressions) |
+| Syntax error handling | 2. Syntax Analysis | Yes | `yyerror(...)`, `%define parse.error verbose` |
+| Organized parsing logic | 2. Syntax Analysis | Yes | layered grammar (`logical` -> `relational` -> `additive` -> ...) |
+| Type checking | 3. Semantic Analysis | Yes | semantic actions in declaration/assignment/expressions |
+| Implicit type conversion | 3. Semantic Analysis | Yes | `canAssignType` supports `int -> float` |
+| Variable declaration checks | 3. Semantic Analysis | Yes | `SymbolTable::addSymbol`, `lookupSymbol` |
+| Variable declaration/assignment behavior | 4. Correctness | Yes | Declaration/Assignment AST + IR emission |
+| Expression evaluation behavior | 4. Correctness | Yes | typed expression actions + binary/unary IR |
+| Conditional statements | 4. Correctness | Yes | `check/otherwise` grammar + `IfStmt` IR labels |
+| Loops | 4. Correctness | Yes | `orbit` grammar + `LoopStmt` IR |
+| Functions | 4. Correctness | Yes | declaration, calls, return checks, recursive support |
+| Intermediate code generation (IR) | 5. Advanced | Yes | AST `generateIR()` methods in `parser.y` |
+| Code optimization pass | 5. Advanced | Partial/No | No separate optimizer phase yet |
+
+## 3. Missing / Partial Items (Transparent)
+
+- Dedicated optimization pass is not implemented as a separate stage.
+- `percent(value, total)` division-by-zero is detected at compile time for literal zero denominator; variable runtime zero is not statically guaranteed.
+
+## 4. EXCEPTIONAL FEATURES (Beyond Basic Rubric)
+
+1. Domain-specific language design with mission-control keywords (`mission`, `module`, `orbit`, `transmit`)
+2. Full AST construction and structured AST printing in debug mode
+3. Built-in intrinsic lowering to IR:
+   - `ignite(x)` -> `t1 = x * 2`, `t2 = t1 + 10`
+   - `percent(a, b)` -> `t1 = a / b`, `t2 = t1 * 100`
+4. Recursive self-call support in semantic resolution
+5. Zero-argument function support (`module int f() ...`, `x = f();`)
+6. Rich lexical error diagnostics (invalid escape, malformed float, overflow, unterminated string, unclosed comment, invalid token)
+7. Parser recovery strategy (`error SEMICOLON`) to continue after syntax errors
+8. Debug architecture with compile-time enable (`-DDEBUG`) and runtime override (`nodebug`)
+9. Memory-safety-oriented Bison `%destructor` usage for discarded semantic values
+
+## 5. Additional Test Coverage Added
+
+- Comprehensive integration: `test_all.sml`
+- Built-ins: `test_builtin_ignite.sml`, `test_builtin_percent.sml`, `test_builtin_percent_error.sml`
+- Function quality: `test_function.sml`, `test_function_call.sml`, `test_recursive_call.sml`, `test_zero_arg_function.sml`
+- Lexical errors: `test_lexical_error.sml`, `test_lex_invalid_token.sml`, `test_lex_invalid_escape.sml`, `test_lex_length_limits.sml`
+- Syntax errors: `test_syntax_error.sml`, `test_syntax_missing_expr.sml`, `test_syntax_missing_end.sml`
+- Core semantics: declaration, assignment, condition, loop, expression, generic error files
+
+## 6. Suggested Demo Order (for Viva / Evaluation)
+
+1. Run `test_all.sml` in normal mode (show clean IR)
+2. Run `test_all.sml` in debug mode (show tokens + semantic logs + AST + symbol table + IR)
+3. Show one lexical error test
+4. Show one syntax error test
+5. Show one semantic error test
+6. Show built-in demo (`ignite`, `percent`)
 
 ---
 
@@ -10,9 +102,9 @@ It is designed as an educational project to demonstrate the core phases of compi
 
 The compiler for **Space Mission Language** is implemented using:
 
-* **Flex** — lexical analysis
-* **Bison** — syntax analysis
-* **C** — runtime and code generation
+* **Flex** - lexical analysis
+* **Bison** - syntax analysis
+* **C++** - parser actions, semantic analysis, AST construction, and IR generation
 
 ---
 
@@ -850,6 +942,9 @@ Built-in IR expansion:
 * `ignite(x)` expands to:
     * `t1 = x * 2`
     * `t2 = t1 + 10`
+* `percent(a, b)` expands to:
+    * `t1 = a / b`
+    * `t2 = t1 * 100`
 
 IR is printed in both normal and debug modes.
 
@@ -873,6 +968,7 @@ The parser executable supports two runtime modes:
 Optional runtime override:
 
 * `nodebug` disables both lexer and parser debug output even in a `-DDEBUG` build.
+* `ast` prints the AST tree even when debug mode is off.
 
 Example usage:
 
@@ -887,6 +983,9 @@ g++ -DDEBUG lex.yy.c parser.tab.c -o sml
 
 # Debug build, but force OFF at runtime
 ./sml nodebug test_all.sml
+
+# AST-only output (tree view without full debug token trace)
+./sml ast test_all.sml
 ```
 
 ---
@@ -904,12 +1003,23 @@ Focused tests:
 * `test_loop.sml` — `orbit` loop with valid flag condition
 * `test_function.sml` — function return validation
 * `test_function_call.sml` — valid call + wrong arity/type cases
+* `test_recursive_call.sml` — recursive self-call validation
+* `test_zero_arg_function.sml` — zero-argument function declaration/call
 * `test_builtin_ignite.sml` — `ignite(x)` usage
+* `test_builtin_percent.sml` — `percent(value, total)` usage
+* `test_builtin_percent_error.sml` — percent argument and division-by-zero checks
 * `test_error.sml` — undeclared variable, redeclaration, type mismatch
+* `test_lexical_error.sml` — mixed lexical error scenarios
+* `test_lex_invalid_token.sml` — focused invalid-token case
+* `test_lex_invalid_escape.sml` — focused invalid string escape case
+* `test_lex_length_limits.sml` — identifier and string length-limit checks
+* `test_syntax_error.sml` — mixed syntax error scenarios
+* `test_syntax_missing_expr.sml` — missing expression after assignment
+* `test_syntax_missing_end.sml` — missing block terminator
 
 Comprehensive test:
 
-* `test_all.sml` — declarations, assignments, expressions, control flow, function definition/call, and `ignite()` usage in one program
+* `test_all.sml`  — integrated coverage of declarations, assignments, expressions, logical operators, conditionals, loops, function definition/calls (including recursion and zero-arg), and built-ins `ignite()` and `percent()`
 
 ---
 
@@ -931,3 +1041,7 @@ Mahhia
 CSE Undergraduate Student
 
 Developed as part of a **Compiler Design Lab course project**.
+
+
+
+---

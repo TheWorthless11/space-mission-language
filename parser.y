@@ -9,7 +9,7 @@
 extern int yylineno; //Hey, this variable exists somewhere else (lexer), use it here
 
 /* Function declarations */
-int yylex();
+int yylex(); //Parser calls lexer using this function
 void yyerror(const char *s);
 extern FILE* yyin;
 
@@ -19,6 +19,13 @@ extern FILE* yyin;
  * true  = debug mode (detailed semantic/parsing steps)
  */
 bool DEBUG_MODE = false;
+
+/*
+ * Optional runtime switch:
+ * true  -> print AST even in non-debug mode
+ * false -> AST printing follows DEBUG_MODE only
+ */
+bool AST_MODE = false;
 
 void debugLog(const std::string& msg) {
     if (DEBUG_MODE) {
@@ -39,6 +46,7 @@ enum class TypeKind {
 };
 #endif
 
+//This function takes a TypeKind and returns a string (text name) so in debug logs we can print "int" instead of "TypeKind::Int"
 static std::string typeName(TypeKind type) {
     switch (type) {
         case TypeKind::Int: return "int";
@@ -49,6 +57,8 @@ static std::string typeName(TypeKind type) {
         default: return "unknown";
     }
 }
+
+// helper functions for type checking and semantic analysis
 
 static bool isErrorType(TypeKind type) {
     return type == TypeKind::Error;
@@ -89,6 +99,30 @@ static TypeKind numericResultType(TypeKind leftType, TypeKind rightType) {
     return TypeKind::Int;
 }
 
+/*
+ * Helper: check whether a numeric literal text represents zero.
+ * Examples that return true: "0", "00", "0.0", "00.00"
+ * We use this for built-in safety checks like division by zero.
+ */
+static bool isZeroNumericLiteralText(const std::string& text) {
+    if (text.empty()) return false;
+
+    bool seenDot = false;
+    for (char ch : text) {
+        if (ch == '.') {
+            if (seenDot) return false; // invalid numeric shape
+            seenDot = true;
+            continue;
+        }
+
+        if (ch != '0') {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 /* ================= SIMPLE AST =================
  * These classes are intentionally small and easy to read.
  * They let us keep semantic checking and also build a tree.
@@ -114,6 +148,12 @@ public:
      */
     virtual std::string generateIR(std::vector<std::string>& ir,
                                    int& tempCounter) const = 0;
+
+    /*
+     * Default behavior: most expressions are NOT guaranteed numeric zero.
+     * Specific nodes (like NumberNode) can override this.
+     */
+    virtual bool isZeroNumericLiteral() const { return false; }
 };
 
 /* Base class for statement nodes. */
@@ -132,7 +172,7 @@ private:
     bool isStringLiteral;
 public:
     explicit LiteralExpr(const std::string& literalValue, bool isString = false)
-        : value(literalValue), isStringLiteral(isString) {}
+        : value(literalValue), isStringLiteral(isString) {} //Create a literal node
     void print(int indent = 0) const override {
         printIndent(indent);
         std::cout << "Literal(" << value << ")\n";
@@ -155,7 +195,7 @@ public:
 class NumberNode : public ExprNode {
 private:
     TypeKind numberType;
-    std::string lexeme;
+    std::string lexeme; // original text of the numeric literal, used for IR generation and zero checks
 public:
     NumberNode(TypeKind type, const std::string& text)
         : numberType(type), lexeme(text) {}
@@ -168,6 +208,13 @@ public:
     std::string generateIR(std::vector<std::string>&,
                            int&) const override {
         return lexeme;
+    }
+
+    /*
+     * This lets semantic checks detect literal zero like 0 or 0.0.
+     */
+    bool isZeroNumericLiteral() const override {
+        return isZeroNumericLiteralText(lexeme);
     }
 };
 
@@ -199,13 +246,13 @@ public:
     void print(int indent = 0) const override {
         printIndent(indent);
         std::cout << "Unary(" << op << ")\n";
-        if (operand) operand->print(indent + 1);
+        if (operand) operand->print(indent + 1); //Unary(NEGATE) Identifier(x)
     }
 
     std::string generateIR(std::vector<std::string>& ir,
                            int& tempCounter) const override {
-        std::string operandName = operand ? operand->generateIR(ir, tempCounter) : "0";
-        std::string tempName = "t" + std::to_string(++tempCounter);
+        std::string operandName = operand ? operand->generateIR(ir, tempCounter) : "0"; //Recursively generate IR for operand
+        std::string tempName = "t" + std::to_string(++tempCounter); //Create a new temporary variable for the result of this unary operation
 
         std::string irOp = op;
         if (op == "NEGATE") irOp = "-";
@@ -264,10 +311,10 @@ public:
 /* Function call expression like add(1,2). */
 class CallExpr : public ExprNode {
 private:
-    std::string callee;
-    std::vector<ExprNode*> args;
+    std::string callee; //Name of the function being called
+    std::vector<ExprNode*> args; //List of argument expressions passed to the function. Each argument is itself an expression node, allowing for nested calls and complex expressions as arguments.
 public:
-    CallExpr(const std::string& functionName, std::vector<ExprNode*>* arguments)
+    CallExpr(const std::string& functionName, std::vector<ExprNode*>* arguments) //Create a function call node with the function name and its argument expressions
         : callee(functionName) {
         if (arguments) {
             args = *arguments;
@@ -314,9 +361,46 @@ public:
             return t2;
         }
 
+        /*
+         * Built-in IR expansion for percent(value, total)
+         * percent(a, b) means: (a / b) * 100
+         * We expand it into two simple 3-address instructions.
+         */
+        if (callee == "percent") {
+            /* percent must receive exactly two arguments. */
+            if (args.size() != 2) {
+                std::cout << "Error: percent expects exactly 2 arguments\n";
+                return "error";
+            }
+
+            /* First generate IR values for both argument expressions. */
+            std::string valueArg = args[0] ? args[0]->generateIR(ir, tempCounter) : "0";
+            std::string totalArg = args[1] ? args[1]->generateIR(ir, tempCounter) : "0";
+
+            /*
+             * Safety check: if total is literal zero, report division by zero.
+             * (Semantic phase already checks this for literal arguments too.)
+             */
+            if (isZeroNumericLiteralText(totalArg)) {
+                std::cout << "Error: function 'percent' division by zero\n";
+                return "error";
+            }
+
+            /* t1 stores the division part: value / total */
+            std::string t1 = "t" + std::to_string(++tempCounter);
+            ir.push_back(t1 + " = " + valueArg + " / " + totalArg);
+
+            /* t2 stores the final percentage: t1 * 100 */
+            std::string t2 = "t" + std::to_string(++tempCounter);
+            ir.push_back(t2 + " = " + t1 + " * 100");
+
+            /* Return the temporary that contains percent(value, total). */
+            return t2;
+        }
+
         /* Normal function-call IR path (unchanged). */
         std::vector<std::string> argNames;
-        for (ExprNode* arg : args) {
+        for (ExprNode* arg : args) { //For each argument:Generate its IR
             if (arg) {
                 argNames.push_back(arg->generateIR(ir, tempCounter));
             }
@@ -324,7 +408,7 @@ public:
 
         std::string tempName = "t" + std::to_string(++tempCounter);
         std::string line = tempName + " = call " + callee + "(";
-        for (std::size_t i = 0; i < argNames.size(); ++i) {
+        for (std::size_t i = 0; i < argNames.size(); ++i) { 
             if (i > 0) line += ", ";
             line += argNames[i];
         }
@@ -630,7 +714,7 @@ public:
     }
 };
 
-static ProgramAST* gProgramAst = nullptr;
+static ProgramAST* gProgramAst = nullptr; //Global pointer to the root of the AST, set by the parser after successful parsing Store final AST here so we can print it or generate IR after parsing is done
 
 std::string currentFunctionName = "";
 TypeKind currentFunctionDeclaredType = TypeKind::Unknown;
@@ -738,11 +822,11 @@ public:
 
         list.push_back({returnType, params});
     }
-
+// Check if function name exists (ignoring parameters)
     bool hasFunction(const std::string& name) const {
         return functions.find(name) != functions.end();
     }
-
+// Check if function with specific arity exists (ignoring parameter types) how many parameters does the function have, regardless of their types
     bool hasFunctionArity(const std::string& name, std::size_t arity) const {
         auto it = functions.find(name);
         if (it == functions.end()) return false;
@@ -755,7 +839,7 @@ public:
 
         return false;
     }
-
+// Resolve function by name and exact parameter types. Returns Error type if not found or ambiguous.
     FunctionInfo resolveFunction(const std::string& name,
                              const std::vector<TypeKind>& args) const {
 
@@ -803,7 +887,7 @@ struct CallArgPack;
 /* Better default syntax messages from Bison. */
 %define parse.error verbose
 /* Enable location tracking support in parser states. */
-%locations
+%locations //Track line + column
 
 /* ================= TOKENS ================= */
 %union {
@@ -834,7 +918,9 @@ struct CallArgPack;
 
 %type <type> param
 %type <type_list> param_list
+%type <type_list> param_list_opt
 %type <call_args> arg_list
+%type <call_args> arg_list_opt
 %type <stmt_node> statement declaration assignment print_stmt if_stmt loop_stmt return_stmt
 %type <stmt_list> statements statements_opt block if_tail
 
@@ -879,6 +965,13 @@ program:
         if (DEBUG_MODE) {
             std::cout << "Program parsed successfully\n";
             symTable.printTable();
+        }
+
+        /*
+         * Print AST in either full debug mode or AST-only mode.
+         * This helps when user wants tree output without token spam.
+         */
+        if (DEBUG_MODE || AST_MODE) {
             std::cout << "\n===== AST =====\n";
             gProgramAst->print();
         }
@@ -1103,7 +1196,12 @@ function:
         delete $2;
         delete $3;
     }
-    LPAREN param_list RPAREN START
+    LPAREN param_list_opt RPAREN
+    {
+        /* Register signature before parsing body so recursive calls resolve. */
+        symTable.addFunction(currentFunctionName, currentFunctionDeclaredType, *$6);
+    }
+    START
     statements END
     {
         if (inferredReturnType == TypeKind::Unknown) {
@@ -1114,16 +1212,21 @@ function:
             std::cout << "Type Error: function return type mismatch\n";
         }
 
-        /*
-         * Store declared return type in symbol table (not inferred),
-         * so function signature follows explicit source declaration.
-         */
-        symTable.addFunction(currentFunctionName, currentFunctionDeclaredType, *$6);
-
-        for (StmtNode* stmt : *$9) delete stmt;
-        delete $9;
+        for (StmtNode* stmt : *$10) delete stmt;
+        delete $10;
         delete $6;
         symTable.exitScope();
+    }
+;
+
+param_list_opt:
+      /* empty */
+    {
+        $$ = new std::vector<TypeKind>();
+    }
+    | param_list
+    {
+        $$ = $1;
     }
 ;
 
@@ -1168,6 +1271,17 @@ arg_list:
         $$->argNodes->push_back($3->node);
         $3->node = nullptr;
         delete $3;
+    }
+;
+
+arg_list_opt:
+      /* empty */
+    {
+        $$ = new CallArgPack();
+    }
+    | arg_list
+    {
+        $$ = $1;
     }
 ;
 
@@ -1549,7 +1663,7 @@ primary:
     {
         $$ = $2;
     }
-    | IDENTIFIER LPAREN arg_list RPAREN
+    | IDENTIFIER LPAREN arg_list_opt RPAREN
     {
         $$ = new ExprResult();
         debugLog("Function call: " + *$1);
@@ -1564,6 +1678,47 @@ primary:
                     $$->type = TypeKind::Error;
                 } else {
                     $$->type = argType;
+                }
+            }
+        } else if (*$1 == "percent") {
+            /*
+             * Built-in semantic checks for percent(value, total)
+             * percent(a, b) = (a / b) * 100
+             */
+
+            /* Step 1: percent must have exactly 2 arguments. */
+            if ($3->argTypes->size() != 2) {
+                std::cout << "Error: function 'percent' called with wrong number of arguments\n";
+                $$->type = TypeKind::Error;
+            } else {
+                TypeKind valueType = $3->argTypes->at(0);
+                TypeKind totalType = $3->argTypes->at(1);
+
+                /* Step 2: both arguments must be numeric (int or float). */
+                if (!isNumericType(valueType) || !isNumericType(totalType)) {
+                    std::cout << "Error: function 'percent' expects int or float arguments\n";
+                    $$->type = TypeKind::Error;
+                } else {
+                    /*
+                     * Step 3: detect obvious division-by-zero at compile time.
+                     * We can do this when the second argument is a numeric literal
+                     * like 0 or 0.0.
+                     */
+                    ExprNode* totalNode = nullptr;
+                    if ($3->argNodes && $3->argNodes->size() >= 2) {
+                        totalNode = $3->argNodes->at(1);
+                    }
+
+                    if (totalNode && totalNode->isZeroNumericLiteral()) {
+                        std::cout << "Error: function 'percent' division by zero\n";
+                        $$->type = TypeKind::Error;
+                    } else {
+                        /*
+                         * Step 4: return numeric result type.
+                         * int/int -> int, any float involved -> float.
+                         */
+                        $$->type = numericResultType(valueType, totalType);
+                    }
                 }
             }
         } else if (!symTable.hasFunction(*$1)) {
@@ -1636,6 +1791,8 @@ int main(int argc, char** argv) {
         // Optional runtime override: disable debug even if built with -DDEBUG.
         if (arg == "nodebug") {
             DEBUG_MODE = false;
+        } else if (arg == "ast") {
+            AST_MODE = true;
         } else {
             inputFile = argv[i];
         }
@@ -1651,6 +1808,8 @@ int main(int argc, char** argv) {
 
     if (DEBUG_MODE) {
         std::cout << "Starting Parser (DEBUG MODE)...\n\n";
+    } else if (AST_MODE) {
+        std::cout << "Starting Parser (AST MODE)...\n\n";
     }
 
     symTable.enterScope();

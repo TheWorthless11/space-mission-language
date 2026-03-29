@@ -1,0 +1,245 @@
+Starting Parser (DEBUG MODE)...
+
+TOKEN: MODULE
+TOKEN: INT
+TOKEN: IDENTIFIER (adjust)
+[DEBUG] Function declared: adjust returns int
+TOKEN: LPAREN
+TOKEN: INT
+TOKEN: IDENTIFIER (value)
+TOKEN: COMMA
+TOKEN: INT
+TOKEN: IDENTIFIER (delta)
+TOKEN: RPAREN
+TOKEN: START
+TOKEN: RETURN
+TOKEN: IDENTIFIER (value)
+TOKEN: PLUS
+TOKEN: IDENTIFIER (delta)
+TOKEN: SEMICOLON
+[DEBUG] Evaluating expression: PLUS
+[DEBUG] Return statement
+TOKEN: END
+TOKEN: MISSION
+TOKEN: IDENTIFIER (all_features_test)
+TOKEN: START
+TOKEN: INT
+TOKEN: IDENTIFIER (fuel)
+TOKEN: SEMICOLON
+[DEBUG] Declared variable: fuel (int)
+TOKEN: INT
+TOKEN: IDENTIFIER (reserve)
+TOKEN: SEMICOLON
+[DEBUG] Declared variable: reserve (int)
+TOKEN: FLOAT
+TOKEN: IDENTIFIER (speed)
+TOKEN: SEMICOLON
+[DEBUG] Declared variable: speed (float)
+TOKEN: STRING
+TOKEN: IDENTIFIER (status)
+TOKEN: SEMICOLON
+[DEBUG] Declared variable: status (string)
+TOKEN: FLAG
+TOKEN: IDENTIFIER (ready)
+TOKEN: SEMICOLON
+[DEBUG] Declared variable: ready (flag)
+TOKEN: IDENTIFIER (fuel)
+TOKEN: ASSIGN
+TOKEN: INTEGER_LITERAL (100)
+TOKEN: SEMICOLON
+[DEBUG] Assignment to variable: fuel
+TOKEN: IDENTIFIER (reserve)
+TOKEN: ASSIGN
+TOKEN: INTEGER_LITERAL (20)
+TOKEN: SEMICOLON
+[DEBUG] Assignment to variable: reserve
+TOKEN: IDENTIFIER (speed)
+TOKEN: ASSIGN
+TOKEN: FLOAT_LITERAL (10.5)
+TOKEN: SEMICOLON
+[DEBUG] Assignment to variable: speed
+TOKEN: IDENTIFIER (status)
+TOKEN: ASSIGN
+TOKEN: STRING_LITERAL (prepare)
+TOKEN: SEMICOLON
+[DEBUG] Assignment to variable: status
+TOKEN: IDENTIFIER (ready)
+TOKEN: ASSIGN
+TOKEN: TRUE
+TOKEN: SEMICOLON
+[DEBUG] Assignment to variable: ready
+TOKEN: IDENTIFIER (fuel)
+TOKEN: ASSIGN
+TOKEN: IDENTIFIER (fuel)
+TOKEN: MINUS
+TOKEN: IDENTIFIER (reserve)
+TOKEN: SEMICOLON
+[DEBUG] Evaluating expression: MINUS
+[DEBUG] Assignment to variable: fuel
+TOKEN: IDENTIFIER (speed)
+TOKEN: ASSIGN
+TOKEN: LPAREN
+TOKEN: IDENTIFIER (speed)
+TOKEN: MULTIPLY
+TOKEN: FLOAT_LITERAL (2.0)
+[DEBUG] Evaluating expression: MULTIPLY
+TOKEN: RPAREN
+TOKEN: DIVIDE
+TOKEN: FLOAT_LITERAL (3.0)
+[DEBUG] Evaluating expression: DIVIDE
+TOKEN: SEMICOLON
+[DEBUG] Assignment to variable: speed
+TOKEN: CHECK
+TOKEN: LPAREN
+TOKEN: IDENTIFIER (ready)
+TOKEN: RPAREN
+TOKEN: START
+TOKEN: TRANSMIT
+TOKEN: IDENTIFIER (status)
+TOKEN: SEMICOLON
+[DEBUG] Print statement
+TOKEN: END
+TOKEN: OTHERWISE
+TOKEN: START
+TOKEN: TRANSMIT
+TOKEN: STRING_LITERAL (hold)
+TOKEN: SEMICOLON
+[DEBUG] Print statement
+TOKEN: END
+[DEBUG] If-Else statement
+TOKEN: ORBIT
+TOKEN: LPAREN
+TOKEN: IDENTIFIER (ready)
+TOKEN: RPAREN
+TOKEN: START
+TOKEN: IDENTIFIER (fuel)
+TOKEN: ASSIGN
+TOKEN: IDENTIFIER (fuel)
+TOKEN: MINUS
+TOKEN: INTEGER_LITERAL (1)
+TOKEN: SEMICOLON
+[DEBUG] Evaluating expression: MINUS
+[DEBUG] Assignment to variable: fuel
+TOKEN: TRANSMIT
+TOKEN: IDENTIFIER (fuel)
+TOKEN: SEMICOLON
+[DEBUG] Print statement
+TOKEN: END
+[DEBUG] Loop statement
+TOKEN: IDENTIFIER (reserve)
+TOKEN: ASSIGN
+TOKEN: IDENTIFIER (adjust)
+TOKEN: LPAREN
+TOKEN: IDENTIFIER (reserve)
+TOKEN: COMMA
+TOKEN: INTEGER_LITERAL (5)
+TOKEN: RPAREN
+[DEBUG] Function call: adjust
+TOKEN: SEMICOLON
+[DEBUG] Assignment to variable: reserve
+TOKEN: IDENTIFIER (fuel)
+TOKEN: ASSIGN
+TOKEN: IDENTIFIER (ignite)
+TOKEN: LPAREN
+TOKEN: IDENTIFIER (reserve)
+TOKEN: RPAREN
+[DEBUG] Function call: ignite
+TOKEN: SEMICOLON
+[DEBUG] Assignment to variable: fuel
+TOKEN: TRANSMIT
+TOKEN: IDENTIFIER (fuel)
+TOKEN: SEMICOLON
+[DEBUG] Print statement
+TOKEN: END
+Program parsed successfully
+
+===== Symbol Table =====
+Scope Level 1:
+
+
+===== AST =====
+ProgramAST
+  Declaration(fuel: int)
+  Declaration(reserve: int)
+  Declaration(speed: float)
+  Declaration(status: string)
+  Declaration(ready: flag)
+  Assignment(fuel)
+    Number(int: 100)
+  Assignment(reserve)
+    Number(int: 20)
+  Assignment(speed)
+    Number(float: 10.5)
+  Assignment(status)
+    Literal(prepare)
+  Assignment(ready)
+    Literal(true)
+  Assignment(fuel)
+    Binary(MINUS)
+      Identifier(fuel)
+      Identifier(reserve)
+  Assignment(speed)
+    Binary(DIVIDE)
+      Binary(MULTIPLY)
+        Identifier(speed)
+        Number(float: 2.0)
+      Number(float: 3.0)
+  If
+    Condition:
+      Identifier(ready)
+    Then:
+      Print
+        Identifier(status)
+    Else:
+      Print
+        Literal(hold)
+  Loop
+    Condition:
+      Identifier(ready)
+    Body:
+      Assignment(fuel)
+        Binary(MINUS)
+          Identifier(fuel)
+          Number(int: 1)
+      Print
+        Identifier(fuel)
+  Assignment(reserve)
+    Call(adjust)
+      Identifier(reserve)
+      Number(int: 5)
+  Assignment(fuel)
+    Call(ignite)
+      Identifier(reserve)
+  Print
+    Identifier(fuel)
+
+===== IR (3-Address Code) =====
+fuel = 100
+reserve = 20
+speed = 10.5
+status = "prepare"
+ready = true
+t1 = fuel - reserve
+fuel = t1
+t2 = speed * 2.0
+t3 = t2 / 3.0
+speed = t3
+ifFalse ready goto L1
+print status
+goto L2
+L1:
+print "hold"
+L2:
+L3:
+ifFalse ready goto L4
+t4 = fuel - 1
+fuel = t4
+print fuel
+goto L3
+L4:
+t5 = call adjust(reserve, 5)
+reserve = t5
+t6 = reserve * 2
+t7 = t6 + 10
+fuel = t7
+print fuel
