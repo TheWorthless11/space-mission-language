@@ -45,7 +45,8 @@ std::string string_buffer;
 
 
 /* -------------------------------------------------DEFINITIONS SECTION. Reusable regular expressions------------------------------------------------- */
-%x STRLIT /* STRLIT is a start condition for processing string literals. When the lexer enters this state, it will use special rules for handling string content until it sees the closing quote. */
+/* STRLIT is a start condition used while scanning inside string literals. */
+%x STRLIT
 /* digits 0-9 */
 DIGIT      [0-9]
 
