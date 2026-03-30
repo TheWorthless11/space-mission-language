@@ -2,6 +2,8 @@
 *.o
 *.out
 *.exe
+sml
+sml_cpp17
 
 # flex/bison generated files
 lex.yy.c
