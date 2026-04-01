@@ -960,12 +960,14 @@ program:
     statements_opt END {
         delete gProgramAst;
         gProgramAst = new ProgramAST($6);
-        symTable.exitScope();
 
         if (DEBUG_MODE) {
             std::cout << "Program parsed successfully\n";
             symTable.printTable();
         }
+
+        // Keep mission scope alive until after the symbol table dump.
+        symTable.exitScope();
 
         /*
          * Print AST in either full debug mode or AST-only mode.
@@ -1814,6 +1816,9 @@ int main(int argc, char** argv) {
 
     symTable.enterScope();
     int parseStatus = yyparse();
+
+    // Close the outer scope opened at parser startup.
+    symTable.exitScope();
 
     if (yyin && inputFile != nullptr) {
         fclose(yyin);

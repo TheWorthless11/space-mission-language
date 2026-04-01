@@ -1041,5 +1041,32 @@ CSE Undergraduate Student
 Developed as part of a **Compiler Design Lab course project**.
 
 
+---
+
+# Mini Special-Feature Test Programs
+
+Added compact, one-feature-per-file demos for quick validation:
+
+* `test_special_feature_keywords.sml` - mission-control keyword usage (`mission/module/check/otherwise/orbit/transmit/return`)
+* `test_special_feature_ast.sml` - nested control-flow structure for AST printing (`./sml ast test_special_feature_ast.sml`)
+* `test_special_feature_ir.sml` - concise arithmetic + branch + loop mix for IR generation
+* `test_special_feature_builtin_ignite.sml` - built-in `ignite(x)` lowering path
+* `test_special_feature_builtin_percent.sml` - built-in `percent(value, total)` lowering path
+* `test_special_feature_recursive_call.sml` - recursive self-call behavior
+* `test_special_feature_zero_arg_function.sml` - zero-argument function declaration/call
+* `test_special_feature_lexical_error.sml` - invalid token lexical diagnostic
+* `test_special_feature_lex_invalid_escape.sml` - invalid escape lexical diagnostic
+* `test_special_feature_parser_recovery.sml` - syntax error recovery (`error SEMICOLON`) continuation
+* `test_special_feature_debug_mode.sml` - small input for debug vs `nodebug` output comparison
+
+Quick run examples:
+
+```bash
+./sml test_special_feature_ir.sml
+./sml ast test_special_feature_ast.sml
+./sml test_special_feature_parser_recovery.sml
+```
+
+
 
 ---
